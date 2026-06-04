@@ -1,52 +1,75 @@
 /**
  * Authentication Model
- * Defines authentication-related data structures
+ * Matches the Winsta AI backend API (NestJS)
+ * Base path: /api/v1/auth
  */
 
-export interface AuthTokens {
-  access_token?: string | null;
-  refresh_token?: string | null;
-  session_token?: string | null;
-  session_id?: string | null;
-  token_type?: string | null;
-  expires_in?: number | null;
-}
-
-import type { Group } from '@models/user.model';
-
-export interface AuthUser {
-  user_id: string;
-  first_name?: string | null;
-  last_name?: string | null;
-  email?: string | null;
-  user_name?: string | null;
-  profile_picture_url?: string | null;
-  groups?: Group[];
-  permissions?: string[];
-}
+// --- Request DTOs (match backend) ---
 
 export interface LoginRequest {
-  user_id: string; // email or phone
-  password?: string;
-  otp?: string;
-  channel?: 'email' | 'sms' | 'whatsapp';
+  email: string;
+  password: string;
 }
 
-export interface LoginResponse {
-  access_token: string;
-  refresh_token: string;
-  session_token: string;
-  session_id: string;
-  token_type: string;
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  workspaceName?: string;
+  companyName?: string;
+  avatarUrl?: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+// --- Response types (wrapped in StandardApiResponse) ---
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: string;
+  emailConfirmationRequired: boolean;
+}
+
+export interface AuthUser {
+  id: string;
+  email?: string;
+  fullName: string;
+  avatarUrl: string | null;
+  isActive: boolean;
+}
+
+export interface AuthWorkspace {
+  id: string;
+  name: string;
+  companyName: string | null;
+  membershipId: string;
+  role: string;
+}
+
+export interface AuthResponse {
   user: AuthUser;
-  groups?: Group[];
-  permissions?: string[];
+  workspace: AuthWorkspace;
+  tokens: AuthTokens;
 }
 
-export interface SignupRequest {
-  user_id: string; // email or phone
-  channel: 'email' | 'sms' | 'whatsapp';
+export interface MeResponse {
+  user: AuthUser;
+  workspaces: AuthWorkspace[];
 }
+
+export interface RefreshResponse {
+  tokens: AuthTokens;
+  user: AuthUser;
+}
+
+export interface LogoutResponse {
+  loggedOut: true;
+}
+
 
 export interface VerifyRequest {
   user_id: string;

@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   
   // External packages for server components (not bundled)
-  serverExternalPackages: ['@prisma/client', 'pg', '@prisma/adapter-pg'],
+  serverExternalPackages: [],
   
   // Image configuration
   images: {

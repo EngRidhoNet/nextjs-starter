@@ -23,45 +23,12 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@api/*": [
-        "src/api/*"
-      ],
-      "@utils/*": [
-        "src/utils/*"
-      ],
-      "@app/*": [
-        "src/app/*"
-      ],
-      "@components/*": [
-        "src/components/*"
-      ],
-      "@context/*": [
-        "src/context/*"
-      ],
-      "@hooks/*": [
-        "src/hooks/*"
-      ],
-      "@lib/*": [
-        "src/lib/*"
-      ],
-      "@models/*": [
-        "src/models/*"
-      ],
-      "@services/*": [
-        "src/services/*"
-      ],
-      "@styles/*": [
-        "src/styles/*"
-      ],
-      "@types/*": [
-        "src/types/*"
-      ],
-      "@locales/*": [
-        "src/locales/*"
-      ],
-      "@/": [
-        "src/"
-      ]
+      "@app/*": ["src/app/*"],
+      "@components/*": ["src/components/*"],
+      "@context/*": ["src/context/*"],
+      "@lib/*": ["src/lib/*"],
+      "@models/*": ["src/models/*"],
+      "@services/*": ["src/services/*"]
     },
     "incremental": true
   },

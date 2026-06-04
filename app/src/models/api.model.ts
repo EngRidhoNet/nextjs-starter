@@ -1,40 +1,25 @@
 /**
  * API Model
- * Defines API request/response structures
+ * Matches NestJS StandardApiResponse wrapper from the backend
  */
 
-export interface ApiResponse<T = any> {
+/** Standard response wrapper from NestJS ApiResponseInterceptor */
+export interface ApiResponse<T = unknown> {
   success: boolean;
+  statusCode: number;
   message: string;
-  data?: T;
-  error?: string;
-  errors?: Record<string, string[]>;
-  status_code?: number;
-}
-
-export interface PaginatedResponse<T = any> {
-  success: boolean;
-  message: string;
-  data: T[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    total_pages: number;
-  };
+  data: T;
+  timestamp: string;
+  path: string;
 }
 
 export interface ApiError {
-  code: string;
+  success: false;
+  statusCode: number;
   message: string;
-  details?: Record<string, any>;
-  status_code?: number;
+  error?: string;
+  timestamp: string;
+  path: string;
 }
 
-export interface RequestOptions {
-  headers?: Record<string, string>;
-  params?: Record<string, any>;
-  timeout?: number;
-  signal?: AbortSignal;
-}
 
