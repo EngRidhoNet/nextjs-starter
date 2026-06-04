@@ -1,0 +1,134 @@
+# ==============================================================================
+# Docker Compose — Development Mode (Hot Reload for Frontend & Backend)
+#
+# Usage:
+#   cd FE-Winsta\ AI && make dev
+#
+# This runs BOTH frontend and backend with live code reloading.
+# ==============================================================================
+
+services:
+  # ============================================================================
+  # Frontend — Next.js with Turbopack (hot reload)
+  # ============================================================================
+  frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    container_name: winsta-ai-frontend-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_PREFIX=/api/v1
+      - APP_INTERNAL_PORT=3000
+    ports:
+      - "${APP_PORT:-3001}:3000"
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - winsta_ai_network
+
+  # ============================================================================
+  # Backend API — NestJS (hot reload, already in winsta-ai/docker-compose.yml)
+  # Included here so a single `make dev` starts everything
+  # ============================================================================
+  api:
+    build:
+      context: ../winsta-ai
+      target: development
+    container_name: winsta-ai-api-dev
+    command: npm run start:dev
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      API_PREFIX: api/v1
+      APP_NAME: Winsta AI API
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/winsta_ai?schema=public
+      AUTH_PROVIDER: local
+      JWT_SECRET: dev-jwt-secret-change-me-in-production-64-chars-minimum!!
+      JWT_EXPIRES_IN: 24h
+      SWAGGER_ENABLED: "true"
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://localhost:5173
+      REDIS_URL: redis://redis:6379
+      QUEUE_ENABLED: "true"
+      QUEUE_PREFIX: winsta
+      INTEGRATION_TOOL_MODE: mock
+      AI_PROVIDER: deepseek
+      ANTHROPIC_API_KEY: sk-2628b5175d6c407f8744cbeaaf9dd8dd
+      ANTHROPIC_MODEL: deepseek-v4-pro
+      ANTHROPIC_MAX_TOKENS: 1200
+      AI_REQUEST_TIMEOUT_MS: 30000
+      SUPABASE_URL:
+      SUPABASE_ANON_KEY:
+      SUPABASE_SERVICE_ROLE_KEY:
+      SUPABASE_JWT_SECRET:
+      ENCRYPTION_KEY:
+      MAKE_REPORT_WEBHOOK_URL:
+      MAKE_AI_ANALYSIS_WEBHOOK_URL:
+      MAKE_WEBHOOK_SECRET:
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../winsta-ai:/app
+      - /app/node_modules
+    networks:
+      - winsta_ai_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  # PostgreSQL
+  # ============================================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: winsta-ai-postgres-dev
+    environment:
+      POSTGRES_DB: winsta_ai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - winsta_ai_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d winsta_ai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ============================================================================
+  # Redis
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: winsta-ai-redis-dev
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - winsta_ai_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  winsta_ai_network:
+    name: winsta_ai_network
+    driver: bridge

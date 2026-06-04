@@ -1,9 +1,8 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Enable React Compiler for automatic memoization & better performance
   reactCompiler: true,
-  
+
   // Turbopack optimizations (10x faster than Webpack)
   turbopack: {
     // Resolve aliases for faster module resolution
@@ -11,22 +10,23 @@ const nextConfig: NextConfig = {
       '@': './src',
       '@lib': './src/lib',
       '@components': './src/components',
+      '@hooks': './src/hooks',
     },
   },
-  
+
   // Disable TypeScript errors during build (use separate type checking)
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Performance optimizations
   compress: true,
   poweredByHeader: false,
   reactStrictMode: true,
-  
+
   // External packages for server components (not bundled)
   serverExternalPackages: [],
-  
+
   // Image configuration
   images: {
     remotePatterns: [

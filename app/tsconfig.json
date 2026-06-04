@@ -26,6 +26,7 @@
       "@app/*": ["src/app/*"],
       "@components/*": ["src/components/*"],
       "@context/*": ["src/context/*"],
+      "@hooks/*": ["src/hooks/*"],
       "@lib/*": ["src/lib/*"],
       "@models/*": ["src/models/*"],
       "@services/*": ["src/services/*"]

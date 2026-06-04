@@ -1,189 +1,80 @@
 # ==============================================================================
-# Multi-stage Dockerfile for Next.js Frontend
-# Optimized for production with security and performance best practices
-# Includes PostgreSQL support with Prisma migrations
+# Multi-stage Dockerfile for Winsta AI Frontend
+# Next.js 16 with Turbopack — optimized for production
 # ==============================================================================
 
 # ==============================================================================
-# Stage 1: Dependencies - Install and cache dependencies
+# Stage 1: Dependencies
 # ==============================================================================
-FROM node:20-alpine AS dependencies
+FROM node:20-alpine AS deps
 
-WORKDIR /frontend
+WORKDIR /app
 
-# Install build dependencies (including PostgreSQL client for health checks)
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    curl \
-    bash \
-    openssl \
-    postgresql-client \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache libc6-compat
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies (this will also run postinstall: prisma generate)
-RUN npm ci --prefer-offline --no-audit --progress=false && \
-    npm cache clean --force
+RUN npm ci --omit=dev --ignore-scripts
 
 # ==============================================================================
-# Stage 2: Builder - Build Next.js app
+# Stage 2: Builder
 # ==============================================================================
 FROM node:20-alpine AS builder
 
-WORKDIR /frontend
+WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    curl \
-    bash \
-    openssl \
-    postgresql-client \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache libc6-compat
 
-# Copy node_modules from dependencies stage
-COPY --from=dependencies /frontend/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Copy package files
-COPY package*.json ./
+COPY . .
 
-# Copy Prisma schema, config, and migrations
-COPY prisma ./prisma/
-COPY prisma.config.ts ./
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Generate Prisma Client (already generated in dependencies stage, but ensure it's up to date)
-RUN npx prisma generate
-
-# Copy configuration files
-COPY next.config.* ./
-COPY tsconfig.json ./
-COPY tailwind.config.js ./
-COPY postcss.config.mjs ./
-COPY components.json ./
-
-# Copy source code
-COPY src ./src
-COPY public ./public
-
-# Copy custom server and scripts
-COPY server.js ./
-COPY start.sh ./
-COPY ecosystem.config.js ./
-
-# Copy helper scripts
-COPY scripts ./scripts/
-
-# Build Next.js production app (Prisma Client already generated)
-RUN npm run build:no-cache
+RUN npm run build
 
 # ==============================================================================
-# Stage 3: Production - Final optimized image
+# Stage 3: Production
 # ==============================================================================
-FROM node:20-alpine AS production
+FROM node:20-alpine AS runner
 
 ARG APP_INTERNAL_PORT=3000
-ARG PRISMA_STUDIO_PORT=5555
-ARG ENABLE_PRISMA_STUDIO=true
-ARG APP_MODE=production
 
-LABEL maintainer="mrdas" \
-      version="1.0" \
-      description="Next.js Frontend - Production Image with PostgreSQL" \
-      org.opencontainers.image.title="nextjs-frontend" \
-      org.opencontainers.image.description="Production-ready Next.js frontend with PostgreSQL support" \
+LABEL org.opencontainers.image.title="winsta-ai-frontend" \
+      org.opencontainers.image.description="Winsta AI Frontend — Next.js 16 production image" \
       org.opencontainers.image.version="1.0.0"
 
 ENV NODE_ENV=production \
-    PATH="/frontend/node_modules/.bin:$PATH" \
-    APP_INTERNAL_PORT=${APP_INTERNAL_PORT} \
-    APP_MODE=${APP_MODE} \
-    PORT=${APP_INTERNAL_PORT} \
-    # Database defaults (can be overridden)
-    WAIT_FOR_DB=true \
-    DB_WAIT_TIMEOUT=60 \
-    SKIP_MIGRATIONS=false \
-    SKIP_SEED=false \
-    # Prisma Studio defaults
-    ENABLE_PRISMA_STUDIO=${ENABLE_PRISMA_STUDIO} \
-    PRISMA_STUDIO_PORT=${PRISMA_STUDIO_PORT}
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=${APP_INTERNAL_PORT}
 
-# Install runtime dependencies (including PostgreSQL client)
-RUN apk add --no-cache \
-    curl \
-    dumb-init \
-    bash \
-    openssl \
-    postgresql-client \
-    && rm -rf /var/cache/apk/*
+RUN apk add --no-cache curl dumb-init && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
 
-# Create non-root user
-RUN addgroup -g 1001 -S mrdas && \
-    adduser -S mrdas -u 1001 -G mrdas
+WORKDIR /app
 
-WORKDIR /frontend
+# Copy production dependencies
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
-# Copy package files
-COPY --from=builder --chown=mrdas:mrdas /frontend/package*.json ./
+# Copy built app
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.mjs ./next.config.mjs
 
-# Copy Prisma files (needed for Prisma Client at runtime and migrations)
-COPY --from=builder --chown=mrdas:mrdas /frontend/prisma ./prisma/
-COPY --from=builder --chown=mrdas:mrdas /frontend/prisma.config.ts ./
+# Copy static assets from standalone (if using output: standalone)
+# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy built Next.js app
-COPY --from=builder --chown=mrdas:mrdas /frontend/.next ./.next
-COPY --from=builder --chown=mrdas:mrdas /frontend/.next/static ./.next/static
+USER nextjs
 
-# Copy public assets
-COPY --from=builder --chown=mrdas:mrdas /frontend/public ./public
+EXPOSE ${APP_INTERNAL_PORT}
 
-# Copy configuration files (needed at runtime)
-COPY --from=builder --chown=mrdas:mrdas /frontend/next.config.* ./
-COPY --from=builder --chown=mrdas:mrdas /frontend/tsconfig.json ./
-COPY --from=builder --chown=mrdas:mrdas /frontend/tailwind.config.js ./
-COPY --from=builder --chown=mrdas:mrdas /frontend/postcss.config.mjs ./
-
-# Copy custom server and scripts
-COPY --from=builder --chown=mrdas:mrdas /frontend/server.js ./
-COPY --from=builder --chown=mrdas:mrdas /frontend/start.sh ./
-COPY --from=builder --chown=mrdas:mrdas /frontend/ecosystem.config.js ./
-
-# Copy helper scripts
-COPY --from=builder --chown=mrdas:mrdas /frontend/scripts ./scripts/
-
-# Install only production dependencies (exclude devDependencies)
-# Prisma Client is already generated in builder stage, so we skip postinstall
-# Note: --only=production is deprecated in npm 7+, use --omit=dev instead
-RUN npm ci --omit=dev --prefer-offline --no-audit --progress=false --ignore-scripts && \
-    npm install -g pm2 && \
-    npm cache clean --force && \
-    # Generate Prisma Client for production (needed at runtime)
-    npx prisma generate
-
-# Create necessary directories
-RUN mkdir -p /frontend/logs /frontend/public/uploads && \
-    chown -R mrdas:mrdas /frontend
-
-# Set executable permissions
-RUN chmod +x /frontend/start.sh
-
-USER mrdas
-
-# Expose ports
-# Port 3000 (or APP_INTERNAL_PORT) for Next.js app
-# Port 5555 for Prisma Studio
-EXPOSE ${APP_INTERNAL_PORT} ${PRISMA_STUDIO_PORT}
-
-# Health check for Next.js
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5 \
-    CMD sh -c "curl -f http://localhost:${APP_INTERNAL_PORT}/api/health || exit 1"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+    CMD curl -f http://localhost:${APP_INTERNAL_PORT} || exit 1
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["/frontend/start.sh"]
+CMD ["npx", "next", "start"]
+
